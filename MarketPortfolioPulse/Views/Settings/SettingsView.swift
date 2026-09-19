@@ -32,7 +32,7 @@ struct SettingsView: View {
                     storedRow("Watchlist", count: watchlist.count, icon: "star.fill")
                 }
 
-                Section("API Keys (Optional)") {
+                Section {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Finnhub API Key")
                             .font(.caption)
@@ -58,6 +58,8 @@ struct SettingsView: View {
                         }
                         .font(.footnote)
                     }
+                } header: {
+                    Text("API Keys (Optional)")
                 } footer: {
                     Text("Leave blank to use the built-in default keys. You can specify custom keys if the free quota is exhausted.")
                 }
