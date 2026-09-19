@@ -67,26 +67,41 @@ final class PortfolioViewModel {
         isAnalyzingRisk = false
     }
 
-    /// Fetches all tickers in parallel via a task group.
+    /// Fetches all tickers in parallel via a task group. Individual failures
+    /// are tolerated so one bad or delisted symbol doesn't blank the rest.
     func fetchPrices(for tickers: [String]) async {
         let uniqueTickers = Array(Set(tickers))
         guard !uniqueTickers.isEmpty else { return }
         let service = self.service
         isLoading = true
         errorMessage = nil
-        do {
-            try await withThrowingTaskGroup(of: (String, Double).self) { group in
-                for ticker in uniqueTickers {
-                    group.addTask {
-                        (ticker, try await service.quote(symbol: ticker).c)
+        var failures: [Error] = []
+
+        await withTaskGroup(of: (String, Result<Double, Error>).self) { group in
+            for ticker in uniqueTickers {
+                group.addTask {
+                    do {
+                        let quote = try await service.quote(symbol: ticker)
+                        return (ticker, .success(quote.c))
+                    } catch {
+                        return (ticker, .failure(error))
                     }
                 }
-                for try await (ticker, price) in group {
-                    livePrices[ticker] = price
+            }
+            for await (ticker, result) in group {
+                switch result {
+                case .success(let price):
+                    if price > 0 { livePrices[ticker] = price }
+                case .failure(let error):
+                    failures.append(error)
                 }
             }
-        } catch {
-            errorMessage = error.userFacingMessage
+        }
+
+        if failures.count == uniqueTickers.count, let first = failures.first {
+            errorMessage = first.userFacingMessage
+        } else {
+            errorMessage = nil
         }
         isLoading = false
     }

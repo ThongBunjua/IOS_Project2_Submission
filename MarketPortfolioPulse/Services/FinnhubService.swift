@@ -48,12 +48,11 @@ actor FinnhubService {
 
         if http.statusCode == 429 {
             guard allowRetryOn429 else { throw FinnhubError.rateLimited }
-            // Wait exactly until the window rolls over. The old blind 60s
-            // sleep left views stuck on "Loading…" long after the budget
-            // had actually freed up.
+            // If the server reported when it resets, wait for it; otherwise
+            // fall back to the full 60s window rather than retrying in 1s.
             let wait = await limiter.secondsUntilReset()
-            let capped = min(max(wait, 1), 61)
-            try await Task.sleep(nanoseconds: UInt64((capped + 0.2) * 1_000_000_000))
+            let delay = wait > 0 ? min(wait, 61) : 60
+            try await Task.sleep(nanoseconds: UInt64((delay + 0.5) * 1_000_000_000))
             return try await fetch(urlString, allowRetryOn429: false)
         }
 

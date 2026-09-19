@@ -298,7 +298,9 @@ struct SearchView: View {
     }
 
     private func openStory(_ item: MarketNews) {
-        if let url = URL(string: item.url) {
+        if let url = URL(string: item.url),
+           let scheme = url.scheme?.lowercased(),
+           scheme == "http" || scheme == "https" {
             safariURL = IdentifiableURL(url: url)
         }
     }

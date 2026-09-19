@@ -8,6 +8,9 @@ struct SettingsView: View {
     @Query private var watchlist: [WatchlistItem]
     @Query private var holdings: [PortfolioHolding]
 
+    @AppStorage("customFinnhubKey") private var customFinnhubKey = ""
+    @AppStorage("customTyphoonKey") private var customTyphoonKey = ""
+
     private var theme: Binding<AppTheme> {
         Binding(
             get: { AppTheme(rawValue: themeRaw) ?? .system },
@@ -27,6 +30,36 @@ struct SettingsView: View {
                 Section("Saved on this device") {
                     storedRow("Holdings", count: holdings.count, icon: "briefcase.fill")
                     storedRow("Watchlist", count: watchlist.count, icon: "star.fill")
+                }
+
+                Section("API Keys (Optional)") {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Finnhub API Key")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Default Built-in Key", text: $customFinnhubKey)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .font(.system(.subheadline, design: .monospaced))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Typhoon AI API Key")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("Default Built-in Key", text: $customTyphoonKey)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+                            .font(.system(.subheadline, design: .monospaced))
+                    }
+                    if !customFinnhubKey.isEmpty || !customTyphoonKey.isEmpty {
+                        Button("Reset to Default Keys") {
+                            customFinnhubKey = ""
+                            customTyphoonKey = ""
+                        }
+                        .font(.footnote)
+                    }
+                } footer: {
+                    Text("Leave blank to use the built-in default keys. You can specify custom keys if the free quota is exhausted.")
                 }
 
                 Section {

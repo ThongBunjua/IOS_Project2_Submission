@@ -91,81 +91,83 @@ final class StockLogoCache {
         }
 
         var pixels = [UInt8](repeating: 0, count: side * side * 4)
-        guard let context = CGContext(
-            data: &pixels,
-            width: side,
-            height: side,
-            bitsPerComponent: 8,
-            bytesPerRow: side * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else {
-            return StockLogo(image: image, prefersDarkTile: false, isSelfContained: false)
-        }
-
-        context.clear(CGRect(x: 0, y: 0, width: side, height: side))
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
-
-        let darkTile = 0.12
-        var visibleOnLight = 0
-        var visibleOnDark = 0
-
-        for index in stride(from: 0, to: pixels.count, by: 4) {
-            let alpha = Double(pixels[index + 3]) / 255
-            guard alpha > 0.15 else { continue }
-            // Values are premultiplied, so compositing is just an add.
-            let r = Double(pixels[index]) / 255
-            let g = Double(pixels[index + 1]) / 255
-            let b = Double(pixels[index + 2]) / 255
-
-            let onLight = 0.2126 * (r + (1 - alpha))
-                        + 0.7152 * (g + (1 - alpha))
-                        + 0.0722 * (b + (1 - alpha))
-            let onDark = 0.2126 * (r + (1 - alpha) * darkTile)
-                       + 0.7152 * (g + (1 - alpha) * darkTile)
-                       + 0.0722 * (b + (1 - alpha) * darkTile)
-
-            if onLight < 0.82 { visibleOnLight += 1 }
-            if onDark > 0.30 { visibleOnDark += 1 }
-        }
-
-        // Does the artwork fill its own frame? Sample the border ring —
-        // if it's mostly opaque, the logo brings its own background.
-        var borderSamples = 0
-        var opaqueBorder = 0
-        for x in 0..<side {
-            for y in [0, 1, side - 2, side - 1] {
-                let index = (y * side + x) * 4
-                borderSamples += 1
-                if Double(pixels[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
+        return pixels.withUnsafeMutableBytes { rawBuffer -> StockLogo? in
+            guard let context = CGContext(
+                data: rawBuffer.baseAddress,
+                width: side,
+                height: side,
+                bitsPerComponent: 8,
+                bytesPerRow: side * 4,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            ) else {
+                return StockLogo(image: image, prefersDarkTile: false, isSelfContained: false)
             }
-        }
-        for y in 0..<side {
-            for x in [0, 1, side - 2, side - 1] {
-                let index = (y * side + x) * 4
-                borderSamples += 1
-                if Double(pixels[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
+
+            context.clear(CGRect(x: 0, y: 0, width: side, height: side))
+            context.draw(cgImage, in: CGRect(x: 0, y: 0, width: side, height: side))
+
+            let darkTile = 0.12
+            var visibleOnLight = 0
+            var visibleOnDark = 0
+
+            for index in stride(from: 0, to: pixels.count, by: 4) {
+                let alpha = Double(pixels[index + 3]) / 255
+                guard alpha > 0.15 else { continue }
+                // Values are premultiplied, so compositing is just an add.
+                let r = Double(pixels[index]) / 255
+                let g = Double(pixels[index + 1]) / 255
+                let b = Double(pixels[index + 2]) / 255
+
+                let onLight = 0.2126 * (r + (1 - alpha))
+                            + 0.7152 * (g + (1 - alpha))
+                            + 0.0722 * (b + (1 - alpha))
+                let onDark = 0.2126 * (r + (1 - alpha) * darkTile)
+                           + 0.7152 * (g + (1 - alpha) * darkTile)
+                           + 0.0722 * (b + (1 - alpha) * darkTile)
+
+                if onLight < 0.82 { visibleOnLight += 1 }
+                if onDark > 0.30 { visibleOnDark += 1 }
             }
-        }
-        let isSelfContained = Double(opaqueBorder) / Double(max(borderSamples, 1)) > 0.85
 
-        let total = Double(side * side)
-        let lightCoverage = Double(visibleOnLight) / total
-        let darkCoverage = Double(visibleOnDark) / total
-        let minimum = 0.012
+            // Does the artwork fill its own frame? Sample the border ring —
+            // if it's mostly opaque, the logo brings its own background.
+            var borderSamples = 0
+            var opaqueBorder = 0
+            for x in 0..<side {
+                for y in [0, 1, side - 2, side - 1] {
+                    let index = (y * side + x) * 4
+                    borderSamples += 1
+                    if Double(pixels[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
+                }
+            }
+            for y in 0..<side {
+                for x in [0, 1, side - 2, side - 1] {
+                    let index = (y * side + x) * 4
+                    borderSamples += 1
+                    if Double(pixels[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
+                }
+            }
+            let isSelfContained = Double(opaqueBorder) / Double(max(borderSamples, 1)) > 0.85
 
-        // A self-contained icon is legible on its own; it doesn't need a
-        // tile behind it and shouldn't be rejected for low contrast.
-        if isSelfContained {
-            return StockLogo(image: image, prefersDarkTile: false, isSelfContained: true)
+            let total = Double(side * side)
+            let lightCoverage = Double(visibleOnLight) / total
+            let darkCoverage = Double(visibleOnDark) / total
+            let minimum = 0.012
+
+            // A self-contained icon is legible on its own; it doesn't need a
+            // tile behind it and shouldn't be rejected for low contrast.
+            if isSelfContained {
+                return StockLogo(image: image, prefersDarkTile: false, isSelfContained: true)
+            }
+            if lightCoverage >= minimum && lightCoverage >= darkCoverage {
+                return StockLogo(image: image, prefersDarkTile: false, isSelfContained: false)
+            }
+            if darkCoverage >= minimum {
+                return StockLogo(image: image, prefersDarkTile: true, isSelfContained: false)
+            }
+            return nil
         }
-        if lightCoverage >= minimum && lightCoverage >= darkCoverage {
-            return StockLogo(image: image, prefersDarkTile: false, isSelfContained: false)
-        }
-        if darkCoverage >= minimum {
-            return StockLogo(image: image, prefersDarkTile: true, isSelfContained: false)
-        }
-        return nil
     }
 }
 

@@ -65,5 +65,6 @@ extension PortfolioHolding {
                 )
             )
         }
+        try? context.save()
     }
 }

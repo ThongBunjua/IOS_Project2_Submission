@@ -48,8 +48,10 @@ struct PortfolioView: View {
 
                         Section("Holdings") {
                             ForEach(holdings) { holding in
-                                holdingRow(holding)
-                                    .padding(.vertical, 4)
+                                NavigationLink(value: holding.ticker) {
+                                    holdingRow(holding)
+                                }
+                                .buttonStyle(.plain)
                             }
                             .onDelete(perform: deleteHoldings)
                         }
@@ -61,6 +63,9 @@ struct PortfolioView: View {
                 }
             }
             .navigationTitle("My Portfolio")
+            .navigationDestination(for: String.self) { symbol in
+                AssetDetailView(symbol: symbol)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -71,8 +76,14 @@ struct PortfolioView: View {
                     .accessibilityLabel("Add positions")
                 }
             }
-            .sheet(isPresented: $showSetup) { PortfolioSetupView() }
+            .sheet(isPresented: $showSetup) {
+                PortfolioSetupView()
+                    .environment(\.modelContext, modelContext)
+            }
             .task { await viewModel.fetchPrices(for: holdings.map(\.ticker)) }
+            .onChange(of: holdings.map(\.ticker)) { _, tickers in
+                Task { await viewModel.fetchPrices(for: tickers) }
+            }
             .overlay(alignment: .top) {
                 if let error = viewModel.errorMessage {
                     ErrorBanner(message: error) {
@@ -178,6 +189,10 @@ struct PortfolioView: View {
                     .contentTransition(.numericText())
                 ChangeChip(change: pnl, changePercent: pnlPercent)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.caption2.bold())
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 4)
     }

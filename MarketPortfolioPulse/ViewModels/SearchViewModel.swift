@@ -115,16 +115,24 @@ final class SearchViewModel {
     }
 
     func search(_ query: String) async {
-        guard !query.trimmingCharacters(in: .whitespaces).isEmpty else {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else {
             results = []
             return
         }
         isSearching = true
         errorMessage = nil
         do {
-            results = try await service.symbolSearch(query: query)
+            let found = try await service.symbolSearch(query: trimmed)
+            guard !Task.isCancelled, trimmed == self.query.trimmingCharacters(in: .whitespaces) else {
+                isSearching = false
+                return
+            }
+            results = found
         } catch {
-            errorMessage = error.userFacingMessage
+            if !Task.isCancelled {
+                errorMessage = error.userFacingMessage
+            }
         }
         isSearching = false
     }

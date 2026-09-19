@@ -103,10 +103,16 @@ actor ChartDataService {
         let chart: Chart
     }
 
+    /// Formats a symbol for Yahoo Finance (e.g. "BRK.B" -> "BRK-B").
+    private static func yahooSymbol(for symbol: String) -> String {
+        let converted = symbol.replacingOccurrences(of: ".", with: "-")
+        return converted.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? converted
+    }
+
     /// Fetches candles and maps them onto the app's existing `CandleData`
     /// so every chart view keeps working unchanged.
     func candles(symbol: String, range: Range) async throws -> CandleData {
-        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let encoded = Self.yahooSymbol(for: symbol)
         guard let url = URL(string:
             "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?range=\(range.range)&interval=\(range.interval)"
         ) else { throw FinnhubError.badURL }
@@ -165,7 +171,7 @@ actor ChartDataService {
 extension ChartDataService {
     /// Latest price including pre-market and after-hours bars.
     func extendedQuote(symbol: String) async throws -> ExtendedQuote? {
-        let encoded = symbol.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? symbol
+        let encoded = Self.yahooSymbol(for: symbol)
         guard let url = URL(string:
             "https://query1.finance.yahoo.com/v8/finance/chart/\(encoded)?range=1d&interval=5m&includePrePost=true"
         ) else { throw FinnhubError.badURL }

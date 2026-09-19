@@ -27,6 +27,19 @@ struct NewsAnalysis: Codable, Equatable {
             case .mixed:   return .orange
             }
         }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let raw = (try? container.decode(String.self))?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "mixed"
+            switch raw {
+            case "bullish", "positive", "up":
+                self = .bullish
+            case "bearish", "negative", "down":
+                self = .bearish
+            default:
+                self = .mixed
+            }
+        }
     }
 
     struct Theme: Codable, Equatable, Identifiable {
@@ -46,6 +59,37 @@ struct NewsAnalysis: Codable, Equatable {
     let watchlistNote: String?
 
     var clampedScore: Int { min(max(score, -100), 100) }
+
+    init(
+        sentiment: Sentiment,
+        score: Int,
+        headline: String,
+        themes: [Theme],
+        watchlistNote: String? = nil
+    ) {
+        self.sentiment = sentiment
+        self.score = score
+        self.headline = headline
+        self.themes = themes
+        self.watchlistNote = watchlistNote
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.sentiment = (try? container.decode(Sentiment.self, forKey: .sentiment)) ?? .mixed
+        if let intScore = try? container.decode(Int.self, forKey: .score) {
+            self.score = intScore
+        } else if let doubleScore = try? container.decode(Double.self, forKey: .score) {
+            self.score = Int(doubleScore)
+        } else if let stringScore = try? container.decode(String.self, forKey: .score), let parsed = Int(stringScore) {
+            self.score = parsed
+        } else {
+            self.score = 0
+        }
+        self.headline = (try? container.decode(String.self, forKey: .headline)) ?? "Market News Summary"
+        self.themes = (try? container.decode([Theme].self, forKey: .themes)) ?? []
+        self.watchlistNote = try? container.decodeIfPresent(String.self, forKey: .watchlistNote)
+    }
 }
 
 // MARK: - Portfolio risk
@@ -88,6 +132,19 @@ struct PortfolioRisk: Codable, Equatable {
             case .high:     return .red
             }
         }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let raw = (try? container.decode(String.self))?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? "moderate"
+            switch raw {
+            case "low", "safe":
+                self = .low
+            case "high", "risky", "danger":
+                self = .high
+            default:
+                self = .moderate
+            }
+        }
     }
 
     struct Concern: Codable, Equatable, Identifiable {
@@ -104,4 +161,35 @@ struct PortfolioRisk: Codable, Equatable {
     let diversificationNote: String?
 
     var clampedScore: Int { min(max(score, 0), 100) }
+
+    init(
+        level: Level,
+        score: Int,
+        headline: String,
+        concerns: [Concern],
+        diversificationNote: String? = nil
+    ) {
+        self.level = level
+        self.score = score
+        self.headline = headline
+        self.concerns = concerns
+        self.diversificationNote = diversificationNote
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.level = (try? container.decode(Level.self, forKey: .level)) ?? .moderate
+        if let intScore = try? container.decode(Int.self, forKey: .score) {
+            self.score = intScore
+        } else if let doubleScore = try? container.decode(Double.self, forKey: .score) {
+            self.score = Int(doubleScore)
+        } else if let stringScore = try? container.decode(String.self, forKey: .score), let parsed = Int(stringScore) {
+            self.score = parsed
+        } else {
+            self.score = 50
+        }
+        self.headline = (try? container.decode(String.self, forKey: .headline)) ?? "Risk Assessment"
+        self.concerns = (try? container.decode([Concern].self, forKey: .concerns)) ?? []
+        self.diversificationNote = try? container.decodeIfPresent(String.self, forKey: .diversificationNote)
+    }
 }

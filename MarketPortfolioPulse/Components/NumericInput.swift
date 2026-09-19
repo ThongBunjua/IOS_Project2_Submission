@@ -17,7 +17,8 @@ extension String {
     /// when the field can't be parsed yet, so clearing a field never
     /// collapses the projection to zero while the user is still typing.
     func clampedDouble(to range: ClosedRange<Double>, fallback: Double) -> Double {
-        let cleaned = filter { $0.isNumber || $0 == "." || $0 == "-" }
+        let normalized = replacingOccurrences(of: ",", with: ".")
+        let cleaned = normalized.filter { $0.isNumber || $0 == "." || $0 == "-" }
         guard let value = Double(cleaned) else { return fallback }
         return Swift.min(Swift.max(value, range.lowerBound), range.upperBound)
     }
