@@ -91,16 +91,17 @@ final class StockLogoCache {
         }
 
         var pixels = [UInt8](repeating: 0, count: side * side * 4)
-        return pixels.withUnsafeMutableBytes { rawBuffer -> StockLogo? in
-            guard let context = CGContext(
-                data: rawBuffer.baseAddress,
-                width: side,
-                height: side,
-                bitsPerComponent: 8,
-                bytesPerRow: side * 4,
-                space: CGColorSpaceCreateDeviceRGB(),
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-            ) else {
+        return pixels.withUnsafeMutableBufferPointer { buffer -> StockLogo? in
+            guard let baseAddress = buffer.baseAddress,
+                  let context = CGContext(
+                      data: baseAddress,
+                      width: side,
+                      height: side,
+                      bitsPerComponent: 8,
+                      bytesPerRow: side * 4,
+                      space: CGColorSpaceCreateDeviceRGB(),
+                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+                  ) else {
                 return StockLogo(image: image, prefersDarkTile: false, isSelfContained: false)
             }
 
@@ -111,13 +112,13 @@ final class StockLogoCache {
             var visibleOnLight = 0
             var visibleOnDark = 0
 
-            for index in stride(from: 0, to: pixels.count, by: 4) {
-                let alpha = Double(pixels[index + 3]) / 255
+            for index in stride(from: 0, to: buffer.count, by: 4) {
+                let alpha = Double(buffer[index + 3]) / 255
                 guard alpha > 0.15 else { continue }
                 // Values are premultiplied, so compositing is just an add.
-                let r = Double(pixels[index]) / 255
-                let g = Double(pixels[index + 1]) / 255
-                let b = Double(pixels[index + 2]) / 255
+                let r = Double(buffer[index]) / 255
+                let g = Double(buffer[index + 1]) / 255
+                let b = Double(buffer[index + 2]) / 255
 
                 let onLight = 0.2126 * (r + (1 - alpha))
                             + 0.7152 * (g + (1 - alpha))
@@ -138,14 +139,14 @@ final class StockLogoCache {
                 for y in [0, 1, side - 2, side - 1] {
                     let index = (y * side + x) * 4
                     borderSamples += 1
-                    if Double(pixels[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
+                    if Double(buffer[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
                 }
             }
             for y in 0..<side {
                 for x in [0, 1, side - 2, side - 1] {
                     let index = (y * side + x) * 4
                     borderSamples += 1
-                    if Double(pixels[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
+                    if Double(buffer[index + 3]) / 255 > 0.85 { opaqueBorder += 1 }
                 }
             }
             let isSelfContained = Double(opaqueBorder) / Double(max(borderSamples, 1)) > 0.85
